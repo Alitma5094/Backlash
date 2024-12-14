@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Backlash Web Viewer</title>
+    <style>
+
+        .parent {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        body {
+            margin: 10px;
+        }
+
+        li:hover {
+            color: blue;
+            text-decoration-line: underline;
+        }
+
+
+    </style>
+</head>
+
+<body>
+<h1>Backlash Web Viewer</h1>
+<div class="parent">
+    <div class="div1" style="border-color: black; border-width: 1px; border-style: solid; padding: 1em">
+        <h2 id="bk-title">Backup: {{ current_hash }}</h2>
+        <label for="backup-select">Choose a backup:</label>
+
+        <select name="backup" id="backup-select">
+            <!--  <option value="dog">Dog</option>-->
+            <!--  <option value="cat">Cat</option>-->
+            {% for k, v in backups.items() %}
+            <option value="{{ k }}">{{ v }}</option>
+            {% endfor %}
+        </select>
+        <h2>Tables</h2>
+        <ul id="tables">
+        </ul>
+    </div>
+    <div class="div2" id="data">
+        <h2>Data</h2>
+    </div>
+</div>
+
+<script src="/static/sql-wasm.js"></script>
+<script>
+    let db = null
+
+    function createTable(columns, values) {
+        // Create table element
+        const table = document.createElement("table");
+        table.style.borderCollapse = "collapse";
+        table.style.width = "100%";
+        table.style.border = "1px solid black";
+
+        // Create table header row
+        const thead = document.createElement("thead");
+        const headerRow = document.createElement("tr");
+        columns.forEach(column => {
+            const th = document.createElement("th");
+            th.textContent = column;
+            th.style.border = "1px solid black";
+            th.style.padding = "8px";
+            th.style.textAlign = "left";
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Create table body rows
+        const tbody = document.createElement("tbody");
+        values.forEach(row => {
+            const tr = document.createElement("tr");
+            row.forEach(cell => {
+                const td = document.createElement("td");
+                td.textContent = cell;
+                td.style.border = "1px solid black";
+                td.style.padding = "8px";
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        table.appendChild(tbody);
+        return table
+    }
+
+    async function setup() {
+        const sqlPromise = initSqlJs({
+            locateFile: file => `/static/sql-wasm.wasm`
+        });
+        const dataPromise = fetch("/database.sqlite/").then(res => res.arrayBuffer());
+        const [SQL, buf] = await Promise.all([sqlPromise, dataPromise])
+        db = new SQL.Database(new Uint8Array(buf));
+
+        const res = db.exec("SELECT name FROM sqlite_master where type = 'table'");
+
+        let tables = document.getElementById("tables")
+        for (let x of res[0]['values']) {
+            let li = document.createElement("li")
+            console.log(x[0])
+            li.innerHTML = x[0]
+            li.id = x[0]
+            li.addEventListener("click", (event) => {
+                console.log(event)
+                const res = db.exec("SELECT * FROM " + event.target.id);
+                const columns = res[0].columns;
+                const values = res[0].values;
+
+                document.getElementById("data").innerHTML = "<h2>Data</h2>"
+                document.getElementById("data").insertAdjacentElement("beforeend", createTable(columns, values))
+
+
+            });
+            tables.insertAdjacentElement("beforeend", li)
+        }
+
+        document.getElementById("backup-select").addEventListener("change", async (event) => {
+            console.log(event.target.value)
+            const dataPromise = fetch("/database.sqlite?h=" + event.target.value).then(res => res.arrayBuffer());
+            const [SQL, buf] = await Promise.all([sqlPromise, dataPromise])
+            db = new SQL.Database(new Uint8Array(buf));
+
+            const res = db.exec("SELECT name FROM sqlite_master where type = 'table'");
+            console.log(res)
+
+            let tables = document.getElementById("tables");
+            tables.innerHTML = ''
+            for (let x of res[0]['values']) {
+                let li = document.createElement("li")
+                li.innerHTML = x[0]
+                li.id = x[0]
+                li.addEventListener("click", (event) => {
+                    console.log(event)
+                    const res = db.exec("SELECT * FROM " + event.target.id);
+                    const columns = res[0].columns;
+                    const values = res[0].values;
+
+                    document.getElementById("data").innerHTML = "<h2>Data</h2>"
+                    document.getElementById("data").insertAdjacentElement("beforeend", createTable(columns, values))
+                });
+                tables.insertAdjacentElement("beforeend", li)
+                document.getElementById("data").innerHTML = "<h2>Data</h2>"
+                document.getElementById("bk-title").innerText = "Backup: " + event.target.value.substring(0, 8)
+            }
+        })
+    }
+
+    setup()
+</script>
+</body>
+
+</html>
