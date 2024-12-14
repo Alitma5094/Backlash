@@ -47,7 +47,9 @@ def gen_db(target):
 
 @cli.command()
 @click.argument(
-    "directory", type=click.Path(exists=True, file_okay=False, resolve_path=True)
+    "directory",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    default=os.getcwd(),
 )
 def init(directory):
     try:
@@ -91,11 +93,12 @@ def init(directory):
 @click.argument(
     "source", type=click.Path(exists=True, dir_okay=False, resolve_path=True)
 )
-# TODO: Make target optional and use current directory be default
 @click.argument(
-    "target", type=click.Path(exists=True, file_okay=False, resolve_path=True)
+    "target",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    default=os.getcwd(),
 )
-def bk(source, target):
+def backup(source, target):
     if lock(target) == 1:
         click.echo("Error: backup locked, please wait for other instances to finish")
     try:
@@ -121,10 +124,10 @@ def bk(source, target):
 
     db_source_file = open(db_bk_path, "rb")
 
-    # if not db_source_file.read(16) == b"SQLite format 3\x00":
-    #     click.echo("Error: invalid source database")
-    #     return
-    #
+    if not db_source_file.read(16) == b"SQLite format 3\x00":
+        click.echo("Error: invalid source database")
+        return
+
     db_source_file.seek(16, os.SEEK_SET)
     page_size = int.from_bytes(db_source_file.read(2), "little") * 256
     # click.echo(page_size)
@@ -151,6 +154,7 @@ def bk(source, target):
         pages.append(page_hash)
 
     db_source_file.close()
+    os.remove(db_bk_path)
 
     current_time = datetime.now().isoformat()
     tree_hash = hashlib.sha256(current_time.encode("utf-8")).hexdigest()
@@ -178,11 +182,12 @@ def bk(source, target):
 
 @cli.command()
 @click.argument(
-    "source", type=click.Path(exists=True, file_okay=False, resolve_path=True)
-)
-# TODO: Make target optional and use current directory be default
-@click.argument(
     "target", type=click.Path(exists=False, dir_okay=False, resolve_path=True)
+)
+@click.argument(
+    "source",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    default=os.getcwd(),
 )
 @click.option(
     "-h",
@@ -192,7 +197,7 @@ def bk(source, target):
     default=None,
     help="Hash of tree to restore.",
 )
-def restore(source, target, target_hash):
+def restore(target, source, target_hash):
     if lock(source) == 1:
         click.echo("Error: backup locked, please wait for other instances to finish")
     if target_hash:
@@ -219,7 +224,9 @@ def restore(source, target, target_hash):
 
 @cli.command()
 @click.argument(
-    "source", type=click.Path(exists=True, file_okay=False, resolve_path=True)
+    "source",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    default=os.getcwd(),
 )
 def history(source):
     if lock(source) == 1:
@@ -260,7 +267,19 @@ def history(source):
 
 
 @cli.command()
-def serve():
+@click.argument(
+    "directory",
+    type=click.Path(exists=True, file_okay=False, resolve_path=True),
+    default=os.getcwd(),
+)
+def serve(directory):
+    try:
+        with open(os.path.join(directory, "HEAD"), "r") as f:
+            pass
+    except FileNotFoundError:
+        click.echo("Error: Directory is not a valid backup")
+        return
+    server.BK_PATH = directory
     server.app.run(debug=True)
 
 

@@ -3,11 +3,12 @@ import os
 from flask import Flask, render_template, Response, request
 
 app = Flask(__name__)
+BK_PATH = ""
 
 
 @app.route("/")
 def index():
-    with open(os.path.join("./bk", "HEAD"), "r") as f:
+    with open(os.path.join(BK_PATH, "HEAD"), "r") as f:
         current_tree = f.readline()
 
     if current_tree == "":
@@ -16,7 +17,7 @@ def index():
     backups = {}
 
     while True:
-        with open(os.path.join("./bk", "trees/", current_tree), "r") as tree_file:
+        with open(os.path.join(BK_PATH, "trees/", current_tree), "r") as tree_file:
             lines = tree_file.read().split("\n")
 
         parent = lines[0].split(" ")[1]
@@ -35,16 +36,12 @@ def database():
     data = []
     head = request.args.get("h", "")
     if head == "":
-        with open("./bk/HEAD", "r") as f:
+        with open(os.path.join(BK_PATH, "HEAD"), "r") as f:
             head = f.readline()
-    # Read the pages from the backup file.
-    with open("./bk/trees/" + head, "r") as fp:
+    with open(os.path.join(BK_PATH, "trees/", head), "r") as fp:
         pages = fp.read().split("\n")[2:]
-    # Open the database.
-    # with open(target, "wb") as db_file_object:
-    # Iterate thourgh the pages and write them to the database.
     for page in pages:
-        path = os.path.join("./bk/pages/", page[:2], page[2:])
+        path = os.path.join(BK_PATH, "pages/", page[:2], page[2:])
         with open(path, "rb") as file_object:
             data.append(file_object.read())
 
