@@ -5,6 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Backlash Web Viewer</title>
+    <link rel="stylesheet" href="https://classless.de/classless.css">
     <style>
 
         .parent {
@@ -14,12 +15,9 @@
             gap: 8px;
         }
 
-        body {
-            margin: 10px;
-        }
 
         li:hover {
-            color: blue;
+            color: green;
             text-decoration-line: underline;
         }
 
@@ -30,7 +28,7 @@
 <body>
 <h1>Backlash Web Viewer</h1>
 <div class="parent">
-    <div class="div1" style="border-color: black; border-width: 1px; border-style: solid; padding: 1em">
+    <div class="div1" style="border-color: black; border-width: 1px; display: inline; border-style: solid; padding: 1em; flex: fit-content">
         <h2 id="bk-title">Backup: {{ current_hash }}</h2>
         <label for="backup-select">Choose a backup:</label>
 
