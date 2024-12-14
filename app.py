@@ -19,7 +19,17 @@ def cli():
     pass
 
 
-# TODO: Add locking functions to prevent duplicate read/write
+def lock(target):
+    try:
+        f = open(os.path.join(target, "LOCK"), "x")
+        f.close()
+    except FileExistsError:
+        return 1
+    return 0
+
+
+def unlock(target):
+    os.remove(os.path.join(target, "LOCK"))
 
 
 @cli.command()
@@ -64,7 +74,7 @@ def init(directory):
         f.write("#!/bin/bash\n# Run after a backup is made.")
     subprocess.run(["chmod", "u+x", os.path.join(directory, "hooks/" "post-backup.sh")])
 
-    with open(os.path.join(directory, "hooks/" "post-restore.sh"), "x") as f:
+    with open(os.path.join(directory, "hooks/" "pre-restore.sh"), "x") as f:
         f.write("#!/bin/bash\n# Run before a restore is made.")
     subprocess.run(["chmod", "u+x", os.path.join(directory, "hooks/" "pre-restore.sh")])
 
@@ -86,6 +96,8 @@ def init(directory):
     "target", type=click.Path(exists=True, file_okay=False, resolve_path=True)
 )
 def bk(source, target):
+    if lock(target) == 1:
+        click.echo("Error: backup locked, please wait for other instances to finish")
     try:
         with open(os.path.join(target, "HEAD"), "r") as f:
             current_head = f.readline()
@@ -161,6 +173,8 @@ def bk(source, target):
         )
         return
 
+    unlock(target)
+
 
 @cli.command()
 @click.argument(
@@ -179,6 +193,8 @@ def bk(source, target):
     help="Hash of tree to restore.",
 )
 def restore(source, target, target_hash):
+    if lock(source) == 1:
+        click.echo("Error: backup locked, please wait for other instances to finish")
     if target_hash:
         tree_hash = target_hash
     else:
@@ -196,6 +212,7 @@ def restore(source, target, target_hash):
             db_target_file.write(page_file.read())
 
     db_target_file.close()
+    unlock(source)
 
     click.echo("DB restored")
 
@@ -205,6 +222,8 @@ def restore(source, target, target_hash):
     "source", type=click.Path(exists=True, file_okay=False, resolve_path=True)
 )
 def history(source):
+    if lock(source) == 1:
+        click.echo("Error: backup locked, please wait for other instances to finish")
     with open(os.path.join(source, "HEAD"), "r") as f:
         current_tree = f.readline()
 
@@ -237,6 +256,7 @@ def history(source):
 
     console = Console()
     console.print(table)
+    unlock(source)
 
 
 @cli.command()
